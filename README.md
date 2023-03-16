@@ -6,7 +6,11 @@ Learning about the Django Python Web Framework
 
 Interesting doc: `https://docs.djangoproject.com/pt-br/2.2/misc/design-philosophies/`
 
-Django is a framework used in order to create websites using python application/code as backend and providing the pages.
+Django is a framework used in order to create webserver (website/web api) using python application/code as backend and 
+providing the pages.
+
+Django takes carry all the major points: good syntax, security, ORM, MVT architecture (MVC), admin interface, 
+good dev community and so on.
 
 ## Apps and Project
 
