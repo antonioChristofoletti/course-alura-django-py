@@ -32,7 +32,7 @@ In a venv environment..
 
 # Static Files
 
--> Firstly It is necessary define the place in which this files is going to stay:
+-> Firstly It is necessary define the place in which these files are going to stay:
 
 Define this in the file setting.py of the project:
 ```
@@ -197,6 +197,22 @@ def index(request):
 
 ```
 
+# Interactive Shell
+
+Django allows interactive terminal shell using the command: `pytho manage.py shell` (ctrl+d to exit)
+
+For instance, It's useful to check data in the database:
+
+```
+>>> from galeria.models import Fotografia
+>>> foto = Fotografia(nome="Nebulosa de Carina", legenda="webbtelescope.org / NASA / James Webb", foto="carina-nebula.png")
+>>> print(foto)
+Fotografia [nome=Nebulosa de Carina]
+>>> foto.save()
+>>> Fotografia.objects.all()
+<QuerySet [<Fotografia: Fotografia [nome=Nebulosa de Carina]>]>
+```
+
 # Django Admin
 
 ## What is
@@ -286,7 +302,7 @@ urlpatterns = [
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 ```
 
-3- Configure the table in which these informations is going to be saved:
+3- Configure the table in which this information is going to be saved:
 
 ```
 class Receita(models.Model):
@@ -299,9 +315,154 @@ class Receita(models.Model):
 <img src="{{ receita.foto_receita.url }}" alt="">
 ```
 
-# GET Parameters
+# Django Forms
 
-Pretty simples, It is not necessary define the parameters in thr urls.py file.
+Django module that allows to define and control html forms using python notation.
+
+Advantages: simple, use the DRY principles and increase development speed.
+
+Disadvantages: Can get tricky to create custom behaviors.
+
+Example:
+
+```
+class LoginForms(forms.Form):
+    nome_login = forms.CharField(
+        label="Nome de Login",
+        required=True,
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Ex.: João Silva"
+            }
+        )
+    )
+    senha = forms.CharField(
+        label="Senha",
+        required=True,
+        max_length=70,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Digite sua senha"
+            }
+        )
+    )
+```
+
+Good practice keep these configs in a `form.py` for each app. There are many different configuration that can be applied.
+
+To use them in the template is pretty straight forward:
+
+Obs.: Important use `{% csrf_token %}` to avoid CSRF attacks.
+
+```
+<form action="" method="">
+    {% csrf_token %}
+    <div class="row">
+        {% for field in form.visible_fields %}
+            <div class="col-12 col-lg-12" style="margin-bottom: 10px;">
+                <label for="{{ field.id_for_label }}" style="color:#D9D9D9; margin-bottom: 5px;">{{field.label}}</label>
+                {{ field }}
+            </div>
+        {% endfor %}
+    </div>
+    <div>
+        <button class="btn btn-success col-12" style="padding: top 5px;" type="submit">Logar</button>
+    </div>
+</form>
+```
+
+Inside the form class It is possible define validations. For examplo:
+
+```
+def clean_name(self):
+    name = self.cleaned_data.get("name")
+
+    if not name:
+        return
+
+    name = name.strip()
+
+    if " " in name:
+        raise forms.ValidationError("Name cant have spaces")
+    else:
+        return nome
+```
+
+These validations can be shown in the client adding this config inside the form (You can change the message style):
+
+```
+{% for error in field.errors %}
+    <div class="alert alert-danger">
+        {{ error }}
+    </div>
+{% endfor %}
+```
+
+Django allows to add tags to different types of messages to help identifying and style messages.
+Add this code in the `settings.py`
+
+```
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.ERROR: 'danger',
+    messages.SUCCESS: 'success',
+}
+```
+
+It is possible to link a form with a model, reducing the quantity of configuration. Example:
+
+```
+class FotografiaForms(forms.ModelForm):
+    class Meta:
+        model = Fotografia
+        exclude = ['publicada', ]
+        labels = {
+            'descricao': 'Descrição',
+            'data_fotografia': 'Data de Registro',
+            'usuario': 'Usuário'
+        }
+
+        widgets = {
+            'nome': forms.TextInput(attrs={'class': 'form-control'}),
+            'legenda': forms.TextInput(attrs={'class': 'form-control'}),
+            'categoria': forms.Select(attrs={'class': 'form-control'}),
+            'descricao': forms.Textarea(attrs={'class': 'form-control'}),
+            'foto': forms.FileInput(attrs={'class': 'form-control'}),
+            'data_fotografia': forms.DateInput(
+                format='%d/%m/%Y',
+                attrs={
+                    'class': 'form-control',
+                    'type': 'date'
+                }
+            ),
+            'usuario': forms.Select(attrs={'class': 'form-control'}),
+        }
+```
+
+The process of handling the form is also simplified. Example:
+
+```
+if not request.user.is_authenticated:
+    messages.error(request, 'Usuário não logado')
+    return redirect('login')
+
+form = FotografiaForms
+if request.method == 'POST':
+    form = FotografiaForms(request.POST, request.FILES)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Nova fotografia cadastrada')
+        return redirect('index')
+
+return render(request, 'galeria/nova_imagem.html', {'form': FotografiaForms()})
+```
+
+# Handling requests
+
+Pretty simples, It is not necessary define the parameters in the urls.py file.
 
 Just need to get and use them in the views. Example:
 
@@ -315,4 +476,47 @@ Just need to get and use them in the views. Example:
     dados = {
         'receitas': receitas
     }
+```
+
+Handling create new user and login is quite simple too:
+
+```
+def cadastro(request):
+    if request.method != "POST":
+        form = CadastroForms()
+        return render(request, 'usuarios/cadastro.html', {"form": form})
+
+    form = CadastroForms(request.POST)
+
+    if not form.is_valid():
+        return redirect('cadastro')
+
+    if form["senha_1"].value() != form["senha_2"].value():
+        messages.error(request, f"Senhas não são iguais")
+        return redirect('cadastro')
+
+    nome = form["nome_cadastro"].value()
+    email = form["email"].value()
+    senha = form["senha_1"].value()
+
+    if User.objects.filter(username=nome).exists():
+        messages.error(request, f"Usuário já existente")
+        return redirect('cadastro')
+
+    usuario = User.objects.create_user(username=nome, email=email, password=senha)
+    usuario.save()
+    messages.success(request, f"Cadastro efetuado com sucesso")
+    return redirect('login')
+```
+
+Obs.: The messages are going to be sent as arguments to be rendered by jinja.
+
+Example of how handle messages sent by backend to the client:
+
+```
+{% for message in messages %}
+    <div class="alert alert-primary">
+        <p id="messages">{{ message }}</p>
+    </div>
+{% endfor %}
 ```
